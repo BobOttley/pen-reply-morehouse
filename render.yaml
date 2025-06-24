@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: pen-reply-morehouse
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python3 app.py
-    plan: free
