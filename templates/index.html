@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PEN Reply&nbsp;| Smart Admissions Assistant</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Brand Variables ───────────────────── */
+    :root {
+      --brand-blue: #003366;
+      --brand-blue-hover: #002244;
+      --sentiment-green: #47B881;
+      --font-sans: "Aptos", "Inter", sans-serif; /* ✅ switched to Aptos fallback */
+    }
+
+    /* ─── Base ──────────────────────────────── */
+    body {
+      margin: 0;
+      background: #f9f9fb;
+      font-family: var(--font-sans);
+      color: #333;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 60px auto;
+      background: #fff;
+      padding: 2.5rem;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem;
+      margin: 0 0 .25rem 0;
+      color: var(--brand-blue);
+    }
+    p.subtext { margin: 0 0 1.8rem 0; color:#555; }
+
+    textarea, button { font-family: var(--font-sans); font-size:1rem; }
+    textarea{
+      width:100%; padding:1rem; border:1px solid #ccc; border-radius:6px;
+      resize:vertical; margin-bottom:1rem; box-sizing:border-box;
+    }
+    textarea#parentMessage{height:140px}
+    textarea#instructionBox,textarea#reviseBox{height:80px}
+
+    button{
+      background:var(--brand-blue); color:#fff; border:none;
+      padding:.75rem 1.6rem; border-radius:6px; cursor:pointer;
+      transition:background .3s;
+    }
+    button:hover:not(:disabled){background:var(--brand-blue-hover)}
+    button:disabled{background:#b8c6d6;cursor:not-allowed}
+
+    .buttons-row{display:flex;gap:1rem;margin-top:.5rem}
+
+    /* Reply & Sentiment boxes */
+    .reply-box,.sentiment-box,.error-box{
+      display:none; margin-top:2rem; padding:1rem; border-radius:6px; white-space:pre-wrap;
+    }
+    .reply-box{background:#eef3f9;border-left:4px solid var(--brand-blue)}
+    .sentiment-box{background:#f5f5f5;border-left:4px solid #cccccc;color:#333}
+    .error-box{background:#ffe9e9;border-left:4px solid #d33c3c;color:#a00;font-weight:600}
+
+    /* Loader */
+    .loader{
+      display:inline-block; width:16px;height:16px;margin-left:10px;
+      border:2px solid #fff;border-top:2px solid var(--brand-blue);
+      border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .revise-section{display:none;margin-top:2rem}
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h1 style="margin: 0;">PEN.ai Reply</h1>
+      <div style="font-size: 0.9rem; color: #555;">
+        Powered by
+        <img src="https://more-house-school.s3.eu-west-2.amazonaws.com/CT__300dpi_primary_full.jpg"
+             alt="Cognitive Tasking"
+             height="28"
+             style="vertical-align: middle; margin-left: 4px; opacity: 0.85;">
+      </div>
+    </div>
+
+<p class="subtext">Paste an email below — PEN.ai will write a professional, personalised response based on More&nbsp;House&nbsp;School.</p>
+
+
+    <textarea id="parentMessage" aria-label="Email enquiry"
+      placeholder="E.g. Do you offer wrap-around care or bursaries for siblings?"></textarea>
+
+    <label for="instructionBox">Optional Instruction:</label>
+    <textarea id="instructionBox" placeholder="E.g. Make the reply warmer, keep it short …"></textarea>
+
+    <div class="buttons-row">
+      <button id="submitBtn">Generate Reply</button>
+      <button id="copyBtn" disabled>Copy Response</button>
+      <button id="clearBtn">Clear Text</button>
+      <span id="loading" class="loader" style="display:none;" aria-live="polite"></span>
+    </div>
+
+    <div id="sentimentBox" class="sentiment-box" aria-live="polite"></div>
+    <div id="replyBox"     class="reply-box"     aria-live="polite"></div>
+    <div id="errorBox"     class="error-box"     role="alert"></div>
+
+    <div id="reviseSection" class="revise-section">
+      <label for="reviseBox">Refine this reply with an instruction:</label>
+      <textarea id="reviseBox" placeholder="E.g. Shorten, remove bursary link …"></textarea>
+      <div class="buttons-row">
+        <button id="reviseBtn">Revise Response</button>
+        <button id="saveBtn">Save as Approved Template</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Front-end Logic (unchanged except clearer copy/clear) ─── -->
+  <script>
+    const $ = id => document.getElementById(id);
+    const submitBtn=$('submitBtn'), copyBtn=$('copyBtn'), clearBtn=$('clearBtn'),
+          loadingSp=$('loading'), replyBox=$('replyBox'), sentimentBox=$('sentimentBox'),
+          errorBox=$('errorBox'), textarea=$('parentMessage'),
+          instructionEl=$('instructionBox'), reviseEl=$('reviseBox'),
+          reviseBtn=$('reviseBtn'), saveBtn=$('saveBtn'), reviseSection=$('reviseSection');
+
+    let lastMessage='', lastReply=''; textarea.focus();
+
+    submitBtn.onclick = async () => {
+      const message=textarea.value.trim(), instruction=instructionEl.value.trim();
+      if(!message){alert("Please paste an email before submitting.");return;}
+      prepUI("Generating new response…");
+
+      try{
+        const r = await fetch("/reply",{method:"POST",headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message,instruction})});
+        const data = await r.json();
+
+        if(r.ok && data.reply){
+          lastMessage=message; lastReply=data.reply;
+          renderReply(data);
+        }else{throw new Error(data.error||"No reply generated.");}
+      }catch(err){showError(err.message);}
+    };
+
+    reviseBtn.onclick = async () => {
+      const instruction=reviseEl.value.trim();
+      if(!instruction||!lastMessage||!lastReply){alert("Missing instruction or previous reply.");return;}
+      prepUI("Revising response…");
+
+      try{
+        const r = await fetch("/revise",{method:"POST",headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message:lastMessage,previous_reply:lastReply,instruction})});
+        const data=await r.json();
+        if(r.ok&&data.reply){lastReply=data.reply; renderReply(data);}
+        else{throw new Error(data.error||"No revision generated.");}
+      }catch(err){showError(err.message);}
+    };
+
+    saveBtn.onclick = async () => {
+      if(!lastMessage||!lastReply){alert("Nothing to save.");return;}
+      await fetch("/save-standard",{method:"POST",headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:lastMessage,reply:lastReply})});
+      alert("Reply saved as a standard.");
+    };
+
+    clearBtn.onclick = () => {
+      textarea.value=''; instructionEl.value=''; reviseEl.value='';
+      lastMessage=lastReply=''; ['replyBox','sentimentBox','errorBox'].forEach(id=>{$(id).style.display='none';$(id).innerHTML='';});
+      reviseSection.style.display='none'; copyBtn.disabled=true; textarea.focus();
+    };
+
+    copyBtn.onclick = () => {navigator.clipboard.writeText(lastReply).then(()=>alert("Response copied."));};
+
+    /* ── helpers ── */
+    function prepUI(msg){
+      replyBox.innerHTML=`<em>${msg}</em>`; replyBox.style.display='block';
+      sentimentBox.style.display='none'; errorBox.style.display='none';
+      copyBtn.disabled=true; submitBtn.disabled=true; loadingSp.style.display='inline-block';
+    }
+    function renderReply(d){
+      replyBox.innerHTML=d.reply; replyBox.style.display='block'; copyBtn.disabled=false;
+      loadingSp.style.display='none'; submitBtn.disabled=false; reviseSection.style.display='block';
+      if(d.sentiment_score!==undefined){sentimentBox.innerHTML=`<strong>Sentiment&nbsp;Score:</strong> ${d.sentiment_score}/10<br><strong>Strategy:</strong> ${d.strategy_explanation}`; sentimentBox.style.display='block';}
+    }
+    function showError(msg){
+      errorBox.textContent='⚠️ '+msg; errorBox.style.display='block'; loadingSp.style.display='none'; submitBtn.disabled=false;
+    }
+  </script>
+</body>
+</html>
