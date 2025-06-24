@@ -8,5 +8,6 @@ venv/
 __pycache__/
 *.pyc
 .env
+!data/metadata.pkl
 *.pkl
 __pycache__/
