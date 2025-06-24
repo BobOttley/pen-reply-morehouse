@@ -4,7 +4,6 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
-from scipy.spatial.distance import cosine
 
 # ──────────────────────────────
 # ✅  SET-UP
