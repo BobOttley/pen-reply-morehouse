@@ -63,7 +63,7 @@ def markdown_to_html(text: str) -> str:
 # ──────────────────────────────
 # 📚  LOAD SCHOOL KB
 # ──────────────────────────────
-with open("embeddings/metadata.pkl", "rb") as f:
+with open("data/metadata.pkl", "rb") as f:
     kb = pickle.load(f)
     doc_embeddings = np.array(kb["embeddings"])
     metadata       = kb["metadata"]
