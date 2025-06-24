@@ -4,6 +4,8 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
+from scipy.spatial.distance import cosine
+
 
 # ──────────────────────────────
 # ✅  SET-UP
@@ -258,8 +260,6 @@ More House School
             pattern = rf'<a href="[^"]+">([^<]*{phrase}[^<]*)</a>'
             replacement = rf'<a href="{correct_url}">\1</a>'
             reply_html = re.sub(pattern, replacement, reply_html, flags=re.IGNORECASE)
-
-        reply_html = markdown_to_html(reply_md)
 
         return jsonify({
             "reply": reply_html,
