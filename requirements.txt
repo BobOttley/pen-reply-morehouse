@@ -8,3 +8,4 @@ fuzzywuzzy
 boto3
 beautifulsoup4
 gunicorn==20.1.0
+scipy==1.13.0
